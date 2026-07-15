@@ -979,6 +979,7 @@ GROUP BY
 - Both dimension tables were accessed using Clustered Index Scans.
 - SQL Server selected Hash Match operators for joins and aggregation, which is typical for analytical queries processing a large number of rows.
 - This execution plan serves as the baseline for evaluating subsequent optimization techniques.
+#### Baseline Summary
 | Metric | Baseline |
 |--------|---------:|
 | CPU Time | **125 ms** |
