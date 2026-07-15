@@ -31,7 +31,7 @@ A **Data Warehouse (DWH)** is a centralized repository that stores integrated, h
 In a typical data warehouse architecture, data is extracted from multiple operational databases, transformed into a consistent format through an **ETL (Extract, Transform, Load)** process, and loaded into the data warehouse. Once stored, the data can be queried efficiently to generate reports, dashboards, and business insights.
 
 <p align="center">
-  <img src="images/data-warehouse-overview.png" alt="Data Warehouse Architecture" width="550">
+  <img src="asset/dwh.png" alt="Data Warehouse Architecture" width="550">
 </p>
 
 The diagram above illustrates the basic flow of a data warehouse:
@@ -56,7 +56,7 @@ The diagram above illustrates the basic flow of a data warehouse:
 ETL (**Extract, Transform, Load**) is the core process used in data warehousing to collect data from multiple sources, convert it into a consistent and reliable format, and load it into a centralized data warehouse for reporting and analytics.
 
 <p align="center">
-  <img src="images/etl-process.png" alt="ETL Process" width="900">
+  <img src="asset/etl_methods.png" alt="ETL Process" width="900">
 </p>
 
 The ETL pipeline consists of three major stages:
@@ -127,7 +127,7 @@ Rather than transforming raw data directly into reporting tables, the Medallion 
 - **Gold Layer** – Organizes the transformed data into business-ready models optimized for reporting and analytics.
 
 <p align="center">
-    <img src="images/medallion-architecture.png" alt="Medallion Architecture" width="900">
+    <img src="asset/medallion_architecture.png" alt="Medallion Architecture" width="900">
 </p>
 
 This layered approach improves data quality, simplifies debugging, and makes the ETL pipeline easier to maintain and extend.
@@ -192,7 +192,7 @@ By separating the warehouse into Bronze, Silver, and Gold layers, the project ac
 This project implements a **SQL Server Data Warehouse** based on the **Medallion Architecture**, organizing data into three logical layers: **Bronze**, **Silver**, and **Gold**. Each layer has a specific responsibility, ensuring that data flows through a structured pipeline from raw ingestion to business-ready analytics.
 
 <p align="center">
-    <img src="images/data-architecture.png" alt="Project Data Architecture" width="1100">
+    <img src="asset/data_architecture.png" alt="Project Data Architecture" width="1100">
 </p>
 
 ### Architecture Overview
@@ -293,7 +293,7 @@ By separating data into Bronze, Silver, and Gold layers, the architecture provid
 The following diagram illustrates how data flows through the warehouse, from the source systems to the final analytical model.
 
 <p align="center">
-    <img src="images/project-data-flow.png" alt="Project Data Flow" width="1100">
+    <img src="asset/data_flow.png" alt="Project Data Flow" width="1100">
 </p>
 
 The data pipeline consists of three sequential stages: **Bronze**, **Silver**, and **Gold**. Each stage is responsible for progressively improving the quality and usability of the data.
@@ -414,7 +414,7 @@ Before building the data warehouse, it is important to understand how the source
 The following diagram illustrates the relationships between the source tables.
 
 <p align="center">
-    <img src="images/source-data-model.png" alt="Source Data Model" width="1100">
+    <img src="asset/table_relation.png" alt="Source Data Model" width="1100">
 </p>
 
 ### CRM Source Tables
@@ -482,7 +482,7 @@ The **Gold layer** is designed using a **Star Schema**, one of the most widely u
 Unlike the Bronze and Silver layers, which focus on storing and preparing data, the Gold layer presents **business-ready datasets** that can be easily consumed by reporting tools, dashboards, and analytical applications.
 
 <p align="center">
-    <img src="images/star-schema.png" alt="Star Schema" width="1000">
+    <img src="asset/star_schema.png" alt="Star Schema" width="1000">
 </p>
 
 ### Star Schema Overview
@@ -919,10 +919,6 @@ To improve performance, the Gold layer was converted into **physical tables**, a
 - Supports advanced indexing
 - Better scalability for large datasets
 
-> 📷 **Execution Screenshot**
->
-> *(Add screenshot showing the Gold tables in SQL Server.)*
-
 #### 2️⃣ Clustered Rowstore Indexes
 
 Clustered primary key indexes were created on the dimension tables to optimize joins and lookup operations.
@@ -940,9 +936,7 @@ PRIMARY KEY CLUSTERED (product_key)
 - Optimized physical storage
 - Improved query execution plans
 
-> 📷 **Execution Screenshot**
->
-> *(Add execution plan or index creation screenshot here.)*
+
 
 #### 3️⃣ Nonclustered Indexes
 
@@ -966,9 +960,6 @@ ON gold.fact_sales_table(order_date);
 - Reduced table scans
 - Lower logical reads
 
-> 📷 **Execution Screenshot**
->
-> *(Add query plan before and after adding indexes.)*
 
 #### 4️⃣ Clustered Columnstore Index
 
@@ -998,9 +989,6 @@ Ideal for operations such as:
 - `GROUP BY`
 - Large table scans
 
-> 📷 **Execution Screenshot**
->
-> *(Add the Columnstore execution plan.)*
 
 ### 📈 Performance Benchmark
 
@@ -1036,9 +1024,13 @@ GROUP BY
 | Execution Mode | Row Mode | Batch Mode |
 | Storage Format | Rowstore | Columnstore |
 
-> 📷 **Benchmark Results**
->
-> *(Insert screenshots of `SET STATISTICS IO` and `SET STATISTICS TIME`.)*
+<p align="center">
+    <img src="asset/clustured_index_1.jpeg" alt="Star Schema" width="1000">
+</p>
+
+<p align="center">
+    <img src="asset/clustured_index_2.jpeg" alt="Star Schema" width="1000">
+</p>
 
 ### 📑 Execution Plan Analysis
 
@@ -1053,9 +1045,6 @@ Characteristics:
 - Higher logical reads
 - Longer execution time
 
-> 📷 **Execution Plan**
->
-> *(Insert execution plan before optimization.)*
 
 **After Optimization**
 
@@ -1068,9 +1057,6 @@ Characteristics:
 - Reduced I/O
 - Significantly faster aggregations
 
-> 📷 **Execution Plan**
->
-> *(Insert execution plan after optimization.)*
 
 ### 🛠️ SQL Server Features Used
 
