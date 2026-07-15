@@ -18,6 +18,8 @@ A complete **SQL Server Data Warehouse** built on the **Medallion Architecture**
 - [SQL Concepts & Functions Used](#️-sql-concepts--functions-used)
 - [Performance Optimization](#-sql-performance-optimization)
 - [Future Enhancements](#-future-enhancements)
+- [Project Structure](#-project-structure)
+- [SQL Server Database Structure](#-sql-server-database-structure)
 - [Author](#-author)
 
 ---
@@ -889,111 +891,19 @@ This project leverages a wide range of SQL Server features and T-SQL functions t
 ---
 
 ## ⚡ SQL Performance Optimization
-
-To improve the performance of analytical queries, several SQL Server optimization techniques were implemented and evaluated. The optimizations focused on reducing query execution time, minimizing I/O operations, and improving resource utilization for large-scale analytical workloads.
-
+ 
+To improve the performance of analytical queries, several SQL Server optimization techniques were implemented and evaluated across four progressive stages. Each stage targets a specific performance bottleneck, moving from a plain rowstore fact table to a fully optimized **Clustered Columnstore Index**.
+ 
 Performance was measured using:
-
+ 
 - Execution Plans
 - `SET STATISTICS IO`
 - `SET STATISTICS TIME`
 - CPU Time
 - Elapsed Execution Time
 - Logical Reads
-
-### Optimization Strategy
-
-The optimization process was carried out in multiple stages, with each stage targeting a specific performance bottleneck.
-
-#### 1️⃣ Physical Gold Tables
-
-Initially, the Gold layer consisted of views. While views simplify development, they require SQL Server to execute the underlying queries every time they are accessed.
-
-To improve performance, the Gold layer was converted into **physical tables**, allowing the warehouse to take advantage of advanced indexing techniques.
-
-**Benefits**
-
-- Eliminates repeated view execution
-- Reduces join overhead
-- Faster analytical queries
-- Supports advanced indexing
-- Better scalability for large datasets
-
-#### 2️⃣ Clustered Rowstore Indexes
-
-Clustered primary key indexes were created on the dimension tables to optimize joins and lookup operations.
-
-```sql
-PRIMARY KEY CLUSTERED (customer_key)
-
-PRIMARY KEY CLUSTERED (product_key)
-```
-
-**Benefits**
-
-- Faster record lookups
-- Efficient joins with the fact table
-- Optimized physical storage
-- Improved query execution plans
-
-
-
-#### 3️⃣ Nonclustered Indexes
-
-Nonclustered indexes were created on the most frequently filtered and joined columns of the fact table.
-
-```sql
-CREATE NONCLUSTERED INDEX IX_fact_sales_customer_key
-ON gold.fact_sales_table(customer_key);
-
-CREATE NONCLUSTERED INDEX IX_fact_sales_product_key
-ON gold.fact_sales_table(product_key);
-
-CREATE NONCLUSTERED INDEX IX_fact_sales_order_date
-ON gold.fact_sales_table(order_date);
-```
-
-**Benefits**
-
-- Faster joins
-- Improved filtering performance
-- Reduced table scans
-- Lower logical reads
-
-
-#### 4️⃣ Clustered Columnstore Index
-
-To optimize analytical workloads, a **Clustered Columnstore Index (CCI)** was implemented on the fact table.
-
-```sql
-CREATE CLUSTERED COLUMNSTORE INDEX CCI_fact_sales
-ON gold.fact_sales_table;
-```
-
-Unlike traditional rowstore indexes, a columnstore index stores data by **columns** rather than rows. This storage format significantly improves compression and enables SQL Server's **Batch Mode Execution**, making it ideal for large analytical queries.
-
-**Advantages**
-
-- High data compression
-- Reduced disk I/O
-- Batch Mode Execution
-- Faster aggregations
-- Lower CPU utilization
-- Improved scalability
-
-Ideal for operations such as:
-
-- `SUM()`
-- `COUNT()`
-- `AVG()`
-- `GROUP BY`
-- Large table scans
-
-
-### 📈 Performance Benchmark
-
-To evaluate the effectiveness of these optimizations, the same analytical query was executed before and after applying the indexing strategies.
-
+The same benchmark query — sales aggregated by **Country**, **Category**, and **Year** — was run at every stage so results stay directly comparable.
+ 
 ```sql
 SELECT
     c.country,
@@ -1013,71 +923,420 @@ GROUP BY
     p.category,
     YEAR(f.order_date);
 ```
-
-#### 📊 Performance Comparison
-
-| Metric | Before Optimization | After Optimization |
-|---------|-------------------:|-------------------:|
-| CPU Time | 125 ms | 16 ms |
-| Elapsed Time | 11,756 ms | 106 ms |
-| Fact Table Reads | 426 Logical Reads | 97 LOB Reads |
-| Execution Mode | Row Mode | Batch Mode |
-| Storage Format | Rowstore | Columnstore |
-
+ 
+### Optimization Strategy
+ 
+| Stage | Technique | Goal |
+|-------|-----------|------|
+| 1 | Baseline (no optimization) | Establish a performance reference point |
+| 2 | Nonclustered Indexes | Speed up joins/filters on key columns |
+| 3 | Covering Index | Eliminate key lookups via `INCLUDE` columns |
+| 4 | Clustered Columnstore Index | Optimize for large-scale analytical aggregation |
+ 
+---
+ 
+### Stage 1 — Baseline (No Optimization)
+ 
+#### Configuration
+ 
+- **Gold Tables:** Physical Rowstore Tables
+- **Fact Table:** Heap (no nonclustered indexes)
+- **Dimension Tables:** Clustered Primary Keys
+- **Query:** Sales aggregation by Country, Category, and Year
+#### Performance Statistics
+ 
+| Metric | Value |
+|---------|------:|
+| CPU Time | **125 ms** |
+| Elapsed Time | **173 ms** |
+| Rows Returned | **56** |
+ 
+**Logical Reads**
+ 
+| Table | Logical Reads |
+|--------|--------------:|
+| fact_sales_table | **426** |
+| dim_customers_table | **289** |
+| dim_products_table | **9** |
+| **Total** | **724** |
+ 
+#### Execution Plan Analysis
+ 
+**Access Methods**
+ 
+| Object | Operator |
+|--------|----------|
+| fact_sales_table | Table Scan |
+| dim_customers_table | Clustered Index Scan |
+| dim_products_table | Clustered Index Scan |
+ 
+- **Join Strategy:** Hash Match (Inner Join)
+- **Aggregation:** Hash Match (Aggregate)
+- **Execution Mode:** Row Mode
+#### Observations
+ 
+- The fact table performed a full table scan because no supporting nonclustered indexes were available.
+- Both dimension tables were accessed using Clustered Index Scans.
+- SQL Server selected Hash Match operators for joins and aggregation, which is typical for analytical queries processing a large number of rows.
+- This execution plan serves as the baseline for evaluating subsequent optimization techniques.
+| Metric | Baseline |
+|--------|---------:|
+| CPU Time | **125 ms** |
+| Elapsed Time | **173 ms** |
+| Logical Reads | **724** |
+| Fact Table Access | Table Scan |
+| Join Type | Hash Match |
+| Aggregate | Hash Match |
+| Execution Mode | Row Mode |
+ 
 <p align="center">
-    <img src="asset/clustured_index_1.jpeg" alt="Star Schema" width="1000">
+    <img src="asset/baseline.png" alt="Baseline Execution Plan" width="1000">
 </p>
-
+ 
+---
+ 
+### Stage 2 — Nonclustered Index Optimization
+ 
+#### Objective
+ 
+Improve query performance by creating nonclustered indexes on frequently joined and filtered columns in the fact table.
+ 
+#### Indexes Created
+ 
+```sql
+CREATE NONCLUSTERED INDEX IX_fact_sales_customer_key
+ON gold.fact_sales_table(customer_key);
+ 
+CREATE NONCLUSTERED INDEX IX_fact_sales_product_key
+ON gold.fact_sales_table(product_key);
+ 
+CREATE NONCLUSTERED INDEX IX_fact_sales_order_date
+ON gold.fact_sales_table(order_date);
+```
+ 
+#### Performance Statistics
+ 
+| Metric | Value |
+|---------|------:|
+| CPU Time | **94 ms** |
+| Elapsed Time | **183 ms** |
+| Rows Returned | **56** |
+ 
+**Logical Reads**
+ 
+| Table | Logical Reads |
+|--------|--------------:|
+| fact_sales_table | **426** |
+| dim_customers_table | **289** |
+| dim_products_table | **9** |
+| **Total** | **724** |
+ 
+#### Execution Plan Analysis
+ 
+**Access Methods**
+ 
+| Object | Operator |
+|--------|----------|
+| fact_sales_table | Table Scan |
+| dim_customers_table | Clustered Index Scan |
+| dim_products_table | Clustered Index Scan |
+ 
+- **Join Strategy:** Hash Match (Inner Join)
+- **Aggregation:** Hash Match (Aggregate)
+- **Execution Mode:** Row Mode
+#### Observations
+ 
+- SQL Server continued to perform a **Table Scan** on the fact table.
+- The optimizer determined that scanning approximately **60K rows** was cheaper than using the newly created nonclustered indexes.
+- Logical reads remained unchanged compared to the baseline.
+- CPU time improved slightly due to optimizer decisions, but the execution plan remained almost identical.
+- This demonstrates that **traditional rowstore indexes provide limited benefit for analytical aggregation queries** over relatively small datasets.
+#### Comparison with Baseline
+ 
+| Metric | Baseline | Nonclustered Index |
+|---------|---------:|--------------------:|
+| CPU Time | **125 ms** | **94 ms** |
+| Elapsed Time | **173 ms** | **183 ms** |
+| Logical Reads | **724** | **724** |
+| Fact Table Access | Table Scan | Table Scan |
+| Join Type | Hash Match | Hash Match |
+| Execution Mode | Row Mode | Row Mode |
+ 
+#### Conclusion
+ 
+Although nonclustered indexes are highly effective for **OLTP workloads** and selective lookup queries, they did not significantly improve this analytical workload because the query performs large aggregations across most of the fact table. This highlighted the need for a storage format optimized for analytics, leading to the implementation of a **Clustered Columnstore Index** in a later stage.
+ 
 <p align="center">
-    <img src="asset/clustured_index_2.jpeg" alt="Star Schema" width="1000">
+    <img src="asset/nonclustered_index.png" alt="Nonclustered Index Execution Plan" width="1000">
 </p>
-
-### 📑 Execution Plan Analysis
-
-**Before Optimization**
-
-Characteristics:
-
-- Clustered Index Scan
-- Hash Match Operators
-- Row Mode Execution
-- Higher CPU utilization
-- Higher logical reads
-- Longer execution time
-
-
-**After Optimization**
-
-Characteristics:
-
-- Columnstore Scan
-- Batch Mode Execution
-- Compressed Column Segments
-- Lower CPU utilization
+ 
+---
+ 
+### Stage 3 — Covering Index Optimization
+ 
+#### Objective
+ 
+Reduce I/O by creating a covering index that contains both the filtering column and the columns required by the query, allowing SQL Server to satisfy more of the query directly from the index.
+ 
+#### Covering Index Created
+ 
+```sql
+DROP INDEX IX_fact_sales_customer_key
+ON gold.fact_sales_table;
+GO
+ 
+DROP INDEX IX_fact_sales_product_key
+ON gold.fact_sales_table;
+GO
+ 
+DROP INDEX IX_fact_sales_order_date
+ON gold.fact_sales_table;
+GO
+ 
+CREATE NONCLUSTERED INDEX IX_fact_sales_covering
+ON gold.fact_sales_table(order_date)
+INCLUDE
+(
+    customer_key,
+    product_key,
+    sales_amount
+);
+```
+ 
+#### Why a Covering Index?
+ 
+Unlike a regular nonclustered index, a covering index stores additional non-key columns using the `INCLUDE` clause. For this benchmark query, the index contains:
+ 
+- **Filter column:** `order_date`
+- **Included columns:** `customer_key`, `product_key`, `sales_amount`
+This reduces the number of page lookups required during query execution.
+ 
+#### Performance Statistics
+ 
+| Metric | Value |
+|---------|------:|
+| CPU Time | **109 ms** |
+| Elapsed Time | **174 ms** |
+| Rows Returned | **56** |
+ 
+**Logical Reads**
+ 
+| Table | Logical Reads |
+|--------|--------------:|
+| fact_sales_table | **211** |
+| dim_customers_table | **289** |
+| dim_products_table | **9** |
+| **Total** | **509** |
+ 
+#### Execution Plan Analysis
+ 
+**Access Methods**
+ 
+| Object | Operator |
+|--------|----------|
+| fact_sales_table | Nonclustered Index Seek |
+| dim_customers_table | Clustered Index Scan |
+| dim_products_table | Clustered Index Scan |
+ 
+- **Join Strategy:** Hash Match (Inner Join)
+- **Aggregation:** Hash Match (Aggregate)
+- **Execution Mode:** Row Mode
+#### Performance Comparison
+ 
+| Metric | Baseline | Covering Index |
+|---------|---------:|----------------:|
+| CPU Time | **125 ms** | **109 ms** |
+| Elapsed Time | **173 ms** | **174 ms** |
+| Fact Table Reads | **426** | **211** |
+| Total Reads | **724** | **509** |
+ 
+#### Improvements
+ 
+**Fact Table Logical Reads**
+ 
+```
+426
+ ↓
+211
+ 
+≈ 50% reduction
+```
+ 
+**Total Logical Reads**
+ 
+```
+724
+ ↓
+509
+ 
+≈ 30% reduction
+```
+ 
+#### Observations
+ 
+- SQL Server switched from a **Table Scan** to a **Nonclustered Index Seek** on the fact table.
+- The covering index eliminated many unnecessary page reads because the required columns were available directly within the index.
+- Fact table logical reads were reduced by approximately **50%**.
+- Overall logical reads decreased from **724** to **509**.
+- CPU time showed a modest improvement.
+- Elapsed execution time remained nearly unchanged due to the relatively small dataset (~60K rows).
+#### Conclusion
+ 
+The covering index successfully reduced I/O by allowing SQL Server to retrieve the required data directly from the index instead of scanning the entire fact table. While the performance gain is modest on this dataset, covering indexes become increasingly beneficial as table size and query complexity grow.
+ 
+<p align="center">
+    <img src="asset/covering_index.png" alt="Covering Index Execution Plan" width="1000">
+</p>
+ 
+---
+ 
+### Stage 4 — Clustered Columnstore Index
+ 
+#### Objective
+ 
+Optimize analytical query performance by storing the fact table in a **column-oriented format**, enabling SQL Server to process aggregation queries more efficiently.
+ 
+#### Clustered Columnstore Index Created
+ 
+```sql
+DROP INDEX IF EXISTS IX_fact_sales_covering
+ON gold.fact_sales_table;
+GO
+ 
+CREATE CLUSTERED COLUMNSTORE INDEX CCI_fact_sales
+ON gold.fact_sales_table;
+```
+ 
+#### Why Columnstore?
+ 
+Unlike traditional rowstore indexes, a **Clustered Columnstore Index (CCI)** stores data column-by-column instead of row-by-row. This provides several advantages for analytical workloads:
+ 
+- High data compression
 - Reduced I/O
-- Significantly faster aggregations
-
-
+- Batch mode execution
+- Faster aggregations
+- Better CPU utilization
+- Optimized star schema queries
+This makes it an ideal storage format for data warehouse fact tables.
+ 
+#### Performance Statistics
+ 
+| Metric | Value |
+|---------|------:|
+| CPU Time | **16 ms** |
+| Elapsed Time | **90 ms** |
+| Rows Returned | **56** |
+ 
+**Storage Reads**
+ 
+| Table | Reads |
+|--------|------:|
+| fact_sales_table | **97 LOB Reads** |
+| Segment Reads | **1** |
+| dim_customers_table | **289 Logical Reads** |
+| dim_products_table | **9 Logical Reads** |
+ 
+#### Execution Plan Analysis
+ 
+**Access Methods**
+ 
+| Object | Operator |
+|--------|----------|
+| fact_sales_table | Columnstore Index Scan |
+| dim_customers_table | Clustered Index Scan |
+| dim_products_table | Clustered Index Scan |
+ 
+- **Join Strategy:** Hash Match (Inner Join)
+- **Aggregation:** Hash Match (Aggregate)
+- **Storage Format:** Clustered Columnstore
+#### Performance Comparison
+ 
+| Metric | Baseline | Columnstore |
+|---------|---------:|------------:|
+| CPU Time | **125 ms** | **16 ms** |
+| Elapsed Time | **173 ms** | **90 ms** |
+| Fact Table Reads | **426 Logical Reads** | **97 LOB Reads** |
+| Execution Mode | Rowstore | Columnstore |
+ 
+#### Improvements
+ 
+**CPU Time**
+ 
+```
+125 ms
+   ↓
+16 ms
+ 
+≈ 87% reduction
+```
+ 
+**Elapsed Time**
+ 
+```
+173 ms
+   ↓
+90 ms
+ 
+≈ 48% faster
+```
+ 
+**Storage Access**
+ 
+```
+Rowstore Pages
+        ↓
+Compressed Column Segments
+```
+ 
+#### Observations
+ 
+- SQL Server switched from a **Table Scan** to a **Columnstore Index Scan**.
+- Data was read from **compressed column segments**, reducing the amount of data processed.
+- CPU utilization decreased significantly because only the required columns were scanned.
+- The query executed considerably faster while processing the same dataset.
+- Columnstore storage is specifically optimized for analytical queries involving `SUM()`, `COUNT()`, `AVG()`, and `GROUP BY`.
+#### Conclusion
+ 
+The Clustered Columnstore Index delivered the best overall performance for this analytical workload. Compared to traditional rowstore storage, it significantly reduced CPU time and improved execution speed by leveraging column-oriented storage and compressed data segments. This makes it the preferred indexing strategy for large fact tables in SQL Server data warehouse solutions.
+ 
+<p align="center">
+    <img src="asset/clustured_index.png" alt="Clustered Columnstore Index Execution Plan" width="1000">
+</p>
+ 
+---
+ 
+### 📊 Overall Performance Summary
+ 
+| Metric | Stage 1: Baseline | Stage 2: Nonclustered | Stage 3: Covering Index | Stage 4: Columnstore |
+|---------|------------------:|-----------------------:|--------------------------:|------------------------:|
+| CPU Time | 125 ms | 94 ms | 109 ms | **16 ms** |
+| Elapsed Time | 173 ms | 183 ms | 174 ms | **90 ms** |
+| Fact Table Reads | 426 | 426 | 211 | **97 LOB Reads** |
+| Total Logical Reads | 724 | 724 | 509 | — |
+| Fact Table Access | Table Scan | Table Scan | Index Seek | **Columnstore Scan** |
+| Execution Mode | Row Mode | Row Mode | Row Mode | **Batch Mode** |
+ 
+Overall, moving from a heap-based rowstore fact table to a **Clustered Columnstore Index** reduced CPU time by roughly **87%** and elapsed execution time by roughly **48%**, confirming columnstore as the optimal storage format for this analytical workload.
+ 
 ### 🛠️ SQL Server Features Used
-
+ 
 **Indexing**
-
+ 
 - Clustered Indexes
 - Nonclustered Indexes
+- Covering Indexes (`INCLUDE`)
 - Clustered Columnstore Index
-
 **Performance Tuning**
-
+ 
 - Execution Plans
 - `SET STATISTICS IO`
 - `SET STATISTICS TIME`
 - Missing Index Analysis
-
 **Performance Metrics**
-
+ 
 - CPU Time
 - Elapsed Execution Time
-- Logical Reads
+- Logical Reads / LOB Reads
 - Batch Mode Execution
 - Columnstore Compression
 
@@ -1112,10 +1371,51 @@ Planned improvements for future iterations of this project:
 
 ---
 
-## 👤 Author
+## 📁 Project Structure
 
-*(Add your name, role, and links — e.g., GitHub, LinkedIn, portfolio.)*
+```text
+SQL_PROJECT
+│
+├── asset/
+├── datasets/
+│   ├── source_crm/
+│   └── source_erp/
+│
+├── docs/
+├── eda/
+├── reports/
+├── scripts/
+│   ├── bronze/
+│   ├── silver/
+│   └── gold/
+│
+├── tests/
+│
+└── README.md
+```
+### Folder Description
+
+| Folder | Purpose |
+|---------|----------|
+| **asset** | Images and diagrams used in the documentation |
+| **datasets** | Raw CRM and ERP source CSV files |
+| **docs** | Supporting project documentation |
+| **eda** | Exploratory Data Analysis SQL scripts |
+| **reports** | Customer and Product 360 reporting views |
+| **scripts** | ETL scripts for Bronze, Silver and Gold layers |
+| **tests** | Data quality checks and performance optimization scripts |
 
 ---
 
-<p align="center">⭐ If you found this project useful, consider giving it a star!</p>
+## 🗄️ SQL Server Database Structure
+<p align="center">
+    <img src="asset/ssms.png" alt="SQL Server Database Structure" width="320">
+</p>
+
+## 👤 Author
+
+# Aman Jaiswal
+[![GitHub](https://img.shields.io/badge/GitHub-amanjaiswal--07-181717?style=for-the-badge&logo=github)](https://github.com/amanjaiswal-07)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Aman%20Jaiswal-0A66C2?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/aman-jaiswal-aa31b51b5)
+
+---
