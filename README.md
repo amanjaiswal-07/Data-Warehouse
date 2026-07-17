@@ -10,16 +10,16 @@ A complete **SQL Server Data Warehouse** built on the **Medallion Architecture**
 - [What is a Data Warehouse?](#what-is-a-data-warehouse)
 - [ETL Process](#-etl-extract-transform-load)
 - [Medallion Architecture](#-medallion-architecture)
-- [Project Data Architecture](#-project-data-architecture)
+- [Project Data Architecture](#project-data-architecture)
 - [Project Data Flow](#-project-data-flow)
-- [Source Data Model](#-source-data-model)
+- [Source Data Model](#source-data-model)
 - [Star Schema (Gold Layer)](#-star-schema-gold-layer)
 - [Analytical Layer (360° Views)](#-analytical-layer)
 - [SQL Concepts & Functions Used](#️-sql-concepts--functions-used)
 - [Performance Optimization](#-sql-performance-optimization)
 - [Future Enhancements](#-future-enhancements)
 - [Project Structure](#-project-structure)
-- [SQL Server Database Structure](#-sql-server-database-structure)
+- [SQL Server Database Structure](#sql-server-database-structure)
 - [Author](#-author)
 
 ---
@@ -188,7 +188,7 @@ By separating the warehouse into Bronze, Silver, and Gold layers, the project ac
 - Support for future enhancements such as incremental loading and automation
 
 ---
-
+<a id="project-data-architecture"></a>
 ## 🏛️ Project Data Architecture
 
 This project implements a **SQL Server Data Warehouse** based on the **Medallion Architecture**, organizing data into three logical layers: **Bronze**, **Silver**, and **Gold**. Each layer has a specific responsibility, ensuring that data flows through a structured pipeline from raw ingestion to business-ready analytics.
@@ -405,7 +405,7 @@ Analytics
 This layered approach ensures that raw data remains preserved, transformed data is standardized and validated, and business-ready datasets are optimized for high-performance analytical queries.
 
 ---
-
+<a id="source-data-model"></a>
 ## 🗂️ Source Data Model
 
 Before building the data warehouse, it is important to understand how the source systems are organized. This project uses data from two operational systems:
@@ -1407,7 +1407,7 @@ SQL_PROJECT
 | **tests** | Data quality checks and performance optimization scripts |
 
 ---
-
+<a id="sql-server-database-structure"></a>
 ## 🗄️ SQL Server Database Structure
 <p align="center">
     <img src="asset/ssms.png" alt="SQL Server Database Structure" width="320">
